@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<!-- Kudos to http://www.sitepoint.com/getting-started-google-maps-recipes/ for initial version -->
+<html>
+<!--
+  Sample map app pulling data directly from Panorama9
+
+  TODOs:
+    - Validate and error input values
+    - Pagination support
+    - MSP support
+  -->
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>P9 Device Locations</title>
+  <script src="http://maps.google.com/maps/api/js?sensor=false"></script>
+  <script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+</head>
+<body>
+  <div id="settings">
+    <label for="key">API Key</label>
+    <input type="text" id="key"/>
+    <label for="cid">Customer ID (leave blank if API key is direct)</label>
+    <input type="text" id="cid"/>
+    <input type="submit" disabled="true" id="go_btn"/>
+  </div>
+  <p>
+    <div id="map" style="width: 800px; height: 600px;"></div>
+    <script>
+      $(document).ready(function() {
+        $('#go_btn').removeAttr('disabled');
+        $("#go_btn").click(function () {
+          load()
+        });
+      });
+      var locations = null
+
+      function load() {
+        var cid = $("#cid").val() + '/'
+        $.ajax({
+          url: 'https://dashboard.panorama9.com/api/' + cid + 'devices/location',
+          type: 'GET',
+          dataType: 'json',
+          success: function() { },
+          error: function() { alert('error'); },
+          headers: {
+            'Authorization': 'OAuth ' + $("#key").val(),
+            'Accept':  'application/json'
+          },
+          beforeSend: setHeader
+        }).done(function(data) {
+          locations = data;
+          draw();
+        });
+        function setHeader(xhr) {
+        // Do nothing atm
+      }
+
+    }
+
+  </script>
+  <script>
+    function draw() {
+    // Setup the different icons and shadows
+    var iconURLPrefix = 'http://maps.google.com/mapfiles/ms/icons/';
+
+    var icons = [
+    iconURLPrefix + 'red-dot.png',
+    iconURLPrefix + 'green-dot.png',
+    iconURLPrefix + 'blue-dot.png',
+    iconURLPrefix + 'orange-dot.png',
+    iconURLPrefix + 'purple-dot.png',
+    iconURLPrefix + 'pink-dot.png',
+    iconURLPrefix + 'yellow-dot.png'
+    ]
+    var iconsLength = icons.length;
+
+    var map = new google.maps.Map(document.getElementById('map'), {
+      zoom: 10,
+      center: new google.maps.LatLng(-37.92, 151.25),
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: false,
+      streetViewControl: false,
+      panControl: false,
+      zoomControlOptions: {
+       position: google.maps.ControlPosition.LEFT_BOTTOM
+     }
+   });
+
+    var infowindow = new google.maps.InfoWindow({
+      maxWidth: 160
+    });
+
+    var markers = new Array();
+
+    var iconCounter = 0;
+
+    // Add the markers and infowindows to the map
+    for (var i = 0; i < locations.length; i++) {
+      var marker = new google.maps.Marker({
+        position: new google.maps.LatLng(
+          parseFloat(locations[i]['automatically_detected']['latitude']),
+          parseFloat(locations[i]['automatically_detected']['longitude'])),
+        map: map,
+        icon: icons[iconCounter % iconsLength]
+      });
+
+      markers.push(marker);
+
+      google.maps.event.addListener(marker, 'click', (function(marker, i) {
+        return function() {
+          infowindow.setContent(locations[i]['name']);
+          infowindow.open(map, marker);
+        }
+      })(marker, i));
+
+      iconCounter++;
+    }
+
+    function autoCenter() {
+      //  Create a new viewpoint bound
+      var bounds = new google.maps.LatLngBounds();
+      //  Go through each...
+      for (var i = 0; i < markers.length; i++) {
+        bounds.extend(markers[i].position);
+      }
+      //  Fit these bounds to the map
+      map.fitBounds(bounds);
+    }
+    autoCenter();
+  }
+</script>
+</body>
+</html>
