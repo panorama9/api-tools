@@ -6,7 +6,6 @@
 
   TODOs:
     - Validate and error input values
-    - Pagination support
     - MSP support
   -->
 <head>
@@ -37,12 +36,30 @@
           load()
         });
       });
-      var locations = null
+      var locations = []
 
       function load() {
+        locations.length = 0
         var cid = $("#cid").val() + '/'
+        var url = 'https://dashboard.panorama9.com/api/' + cid + 'devices/location'
+        request_slice(url, 1, update_map)
+      }
+ 
+      function update_map(data, request, has_more) {
+        console.log("In update_map")
+        if (has_more) {
+          $('#devices_fetched').text('Still fetching, now have: ' + locations.length);
+          $('#devices_fetched').show();
+        } else {
+          $('#devices_fetched').text('Devices fetched: ' + locations.length);
+          $('#devices_fetched').show();
+          draw();
+        }
+      }
+
+      function request_slice(url, pageArg, updateFn) {
         $.ajax({
-          url: 'https://dashboard.panorama9.com/api/' + cid + 'devices/location',
+          url: url + '?per_page=200&page=' + pageArg,
           type: 'GET',
           dataType: 'json',
           success: function() { },
@@ -51,18 +68,28 @@
             'Authorization': 'OAuth ' + $("#key").val(),
             'Accept':  'application/json'
           },
-          beforeSend: setHeader
-        }).done(function(data) {
-          locations = data;
+          beforeSend: setHeader,
+        }).done(function(data, textStatus, request) {
+          console.log('Done');
 
-          $('#devices_fetched').text('Devices fetched: ' + locations.length);
-          $('#devices_fetched').show();
+          locations = locations.concat(data)
+          var has_more = request.getResponseHeader('X-Hasmore') === "true";
 
-          draw();
+          console.log('Data received, length ' + data.length + '. Total data length now ' + locations.length + '. HasMore ' + has_more + '. Page arg ' + pageArg);
+
+          updateFn(data, request, has_more)
+
+          if (has_more) {
+            request_slice(url, pageArg+1, updateFn)
+          }
+
+        }).fail(function(request, textStatus, errorThrown) {
+          console.log('Errored ' + textStatus);
         });
         function setHeader(xhr) {
         // Do nothing atm
       }
+
 
     }
 
